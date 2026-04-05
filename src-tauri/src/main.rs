@@ -213,8 +213,8 @@ fn main() {
                     }
                 })
                 .on_tray_icon_event(|tray: &tauri::tray::TrayIcon, event: tauri::tray::TrayIconEvent| {
-                    // 左键单击显示/隐藏窗口
-                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                    // 只处理左键单击显示/隐藏窗口，右键留给菜单
+                    if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
                         if let Some(window) = tray.app_handle().get_webview_window("main") {
                             let is_visible = window.is_visible().unwrap_or(false);
                             if is_visible {
