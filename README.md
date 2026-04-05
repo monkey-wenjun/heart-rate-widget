@@ -2,6 +2,8 @@
 
 一个基于 Tauri + React + Rust 开发的蓝牙心率监测桌面小组件，支持 Windows 平台。
 
+![Heart Rate Widget Screenshot](https://file.awen.me/images/clip_1775384844303_s5chuh.png)
+
 ![License](https://img.shields.io/badge/license-ISC-blue.svg)
 ![Tauri](https://img.shields.io/badge/tauri-2.0-blue.svg)
 ![React](https://img.shields.io/badge/react-18.2-blue.svg)
