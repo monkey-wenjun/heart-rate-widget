@@ -31,11 +31,7 @@
     "security": {
       "csp": null
     },
-    "trayIcon": {
-      "id": "main-tray",
-      "iconPath": "icons/icon.png",
-      "tooltip": "心率监测"
-    }
+    "trayIcon": null
   },
   "bundle": {
     "active": true,
