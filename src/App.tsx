@@ -23,6 +23,11 @@ export default function App() {
   const [, setSensorContact] = useState(false);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [status, setStatus] = useState<string>('启动中...');
+  
+  // 设置相关状态
+  const [showSettings, setShowSettings] = useState(false);
+  const [autostartEnabled, setAutostartEnabled] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
 
   useEffect(() => {
     const savedLock = localStorage.getItem('hrWidget_locked');
@@ -31,12 +36,12 @@ export default function App() {
     }
     
     loadPosition();
+    loadAutostartStatus();
     
     (window as any).onHeartRate = (data: any) => {
       console.log('HR:', data);
       setHeartRate(data.heart_rate);
       setSensorContact(data.sensor_contact);
-      // 只要有数据就显示已连接
       setStatus('已连接');
       setConnectedDevice(prev => prev || 'connected');
       setHistory(prev => {
@@ -44,6 +49,10 @@ export default function App() {
         const newHistory = [...prev, { time: now, value: data.heart_rate }];
         return newHistory.filter(p => now - p.time < 60000);
       });
+    };
+    
+    (window as any).showSettings = () => {
+      setShowSettings(true);
     };
     
     const handler = (e: any) => {
@@ -66,6 +75,15 @@ export default function App() {
       window.removeEventListener('tauri://event/heart-rate-update', handler);
     };
   }, []);
+
+  const loadAutostartStatus = async () => {
+    try {
+      const autostart = await invoke<boolean>('get_autostart_status');
+      setAutostartEnabled(autostart);
+    } catch (e) {
+      console.error('加载自启动设置失败:', e);
+    }
+  };
 
   const loadPosition = async () => {
     try {
@@ -130,13 +148,24 @@ export default function App() {
     autoConnect();
   };
 
-  // 锁定图标：锁定时显示 ○，解锁时显示 ●
+  const handleAutostartChange = async (enabled: boolean) => {
+    try {
+      await invoke('set_autostart', { enabled });
+      setAutostartEnabled(enabled);
+      setSaveStatus('设置已保存');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } catch (e) {
+      setSaveStatus('保存失败');
+      setTimeout(() => setSaveStatus(''), 2000);
+    }
+  };
+
   const lockIcon = isLocked ? '○' : '●';
   
   return (
     <div style={styles.container}>
       {/* 拖动区域 - 整个背景可拖动（解锁时） */}
-      {!isLocked && (
+      {!isLocked && !showSettings && (
         <div 
           style={styles.dragOverlay}
           data-tauri-drag-region="true"
@@ -159,39 +188,85 @@ export default function App() {
         >
           ↻
         </button>
+        <button 
+          onClick={() => setShowSettings(true)}
+          style={styles.iconBtn}
+          title="设置"
+        >
+          ⚙
+        </button>
       </div>
 
-      {/* 主内容区 */}
-      <div style={styles.content}>
-        {/* 状态指示器 */}
-        <div style={styles.statusLine}>
-          {isScanning && <span style={styles.spinner}>⟳</span>}
-          <span style={styles.statusText}>{status}</span>
-          {connectedDevice && (
-            <span style={styles.dot}>●</span>
-          )}
+      {/* 设置面板 */}
+      {showSettings ? (
+        <div style={styles.settingsPanel}>
+          <div style={styles.settingsHeader}>
+            <h3 style={styles.settingsTitle}>设置</h3>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSettings(false);
+              }}
+              style={styles.closeBtn}
+              type="button"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div style={styles.settingsContent}>
+            {/* 开机自启动设置 */}
+            <div style={styles.settingSection}>
+              <h4 style={styles.sectionTitle}>系统设置</h4>
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={autostartEnabled}
+                  onChange={(e) => handleAutostartChange(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>开机自启动</span>
+              </label>
+            </div>
+            
+            {saveStatus && (
+              <div style={styles.saveStatus}>{saveStatus}</div>
+            )}
+          </div>
         </div>
+      ) : (
+        /* 主内容区 */
+        <div style={styles.content}>
+          {/* 状态指示器 */}
+          <div style={styles.statusLine}>
+            {isScanning && <span style={styles.spinner}>⟳</span>}
+            <span style={styles.statusText}>{status}</span>
+            {connectedDevice && (
+              <span style={styles.dot}>●</span>
+            )}
+          </div>
 
-        {/* 心率显示 */}
-        <div style={styles.hrDisplay}>
-          <span style={styles.heart}>❤</span>
-          <span style={styles.hrValue}>{heartRate > 0 ? heartRate : '--'}</span>
-          <span style={styles.unit}>BPM</span>
-        </div>
+          {/* 心率显示 */}
+          <div style={styles.hrDisplay}>
+            <span style={styles.heart}>❤</span>
+            <span style={styles.hrValue}>{heartRate > 0 ? heartRate : '--'}</span>
+            <span style={styles.unit}>BPM</span>
+          </div>
 
-        {/* 图表 */}
-        <div style={styles.chart}>
-          <HeartRateChart data={history} />
+          {/* 图表 */}
+          <div style={styles.chart}>
+            <HeartRateChart data={history} />
+          </div>
+          
+          {/* 设备名称 */}
+          <div style={styles.deviceName}>
+            {deviceName || '等待连接'}
+          </div>
         </div>
-        
-        {/* 设备名称 */}
-        <div style={styles.deviceName}>
-          {deviceName || '等待连接'}
-        </div>
-      </div>
+      )}
       
       {/* 解锁提示 */}
-      {!isLocked && (
+      {!isLocked && !showSettings && (
         <div style={styles.dragHint}>
           拖动移动位置
         </div>
@@ -315,5 +390,79 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '9px',
     color: 'rgba(255, 255, 255, 0.4)',
     zIndex: 10,
+  },
+  settingsPanel: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '12px',
+    zIndex: 5,
+    overflow: 'hidden',
+  },
+  settingsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px',
+    paddingBottom: '8px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  settingsTitle: {
+    margin: 0,
+    fontSize: '16px',
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  closeBtn: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '4px',
+    border: 'none',
+    background: 'rgba(255, 255, 255, 0.1)',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: 'rgba(255, 255, 255, 0.8)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    position: 'relative',
+  },
+  settingsContent: {
+    flex: 1,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  settingSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  sectionTitle: {
+    margin: 0,
+    fontSize: '13px',
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '12px',
+    color: 'rgba(255, 255, 255, 0.8)',
+    cursor: 'pointer',
+  },
+  checkbox: {
+    width: '16px',
+    height: '16px',
+    cursor: 'pointer',
+  },
+  saveStatus: {
+    fontSize: '11px',
+    color: '#2ed573',
+    textAlign: 'center',
+    padding: '4px',
   },
 };

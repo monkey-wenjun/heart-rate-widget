@@ -27,7 +27,7 @@ pub struct BleDevice {
 /// 解析心率测量数据
 pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
     eprintln!("收到原始数据: {:?}", data);
-    
+
     if data.is_empty() {
         eprintln!("数据为空");
         return None;
@@ -39,8 +39,14 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
     let energy_expended_present = (flags >> 3) & 0x01;
     let rr_interval_present = (flags >> 4) & 0x01;
 
-    eprintln!("Flags: {:08b}, HR格式: {}, 传感器: {}, 能量: {}, RR: {}", 
-              flags, heart_rate_format, sensor_contact_status, energy_expended_present, rr_interval_present);
+    eprintln!(
+        "Flags: {:08b}, HR格式: {}, 传感器: {}, 能量: {}, RR: {}",
+        flags,
+        heart_rate_format,
+        sensor_contact_status,
+        energy_expended_present,
+        rr_interval_present
+    );
 
     let mut index = 1;
 
@@ -103,11 +109,16 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
 /// 扫描心率设备
 pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice>, String> {
     eprintln!("开始扫描蓝牙设备...");
-    
-    let manager = Manager::new().await.map_err(|e| format!("创建蓝牙管理器失败: {}", e))?;
-    
-    let adapters = manager.adapters().await.map_err(|e| format!("获取适配器失败: {}", e))?;
-    
+
+    let manager = Manager::new()
+        .await
+        .map_err(|e| format!("创建蓝牙管理器失败: {}", e))?;
+
+    let adapters = manager
+        .adapters()
+        .await
+        .map_err(|e| format!("获取适配器失败: {}", e))?;
+
     if adapters.is_empty() {
         return Err("未找到蓝牙适配器".to_string());
     }
@@ -123,21 +134,23 @@ pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice
     eprintln!("扫描中... 等待 {} 秒", duration_secs);
     time::sleep(Duration::from_secs(duration_secs)).await;
 
-    let peripherals = central.peripherals().await.map_err(|e| format!("获取设备失败: {}", e))?;
+    let peripherals = central
+        .peripherals()
+        .await
+        .map_err(|e| format!("获取设备失败: {}", e))?;
     eprintln!("发现 {} 个设备", peripherals.len());
-    
+
     let mut devices = Vec::new();
 
     for p in peripherals {
         if let Ok(Some(props)) = p.properties().await {
             let name = props.local_name.unwrap_or_else(|| "未知设备".to_string());
-            
+
             eprintln!("设备: {} | 服务: {:?}", name, props.services);
-            
+
             // 支持的心率设备
             let name_lower = name.to_lowercase();
-            let is_hr_device = 
-                name_lower.contains("polar") 
+            let is_hr_device = name_lower.contains("polar")
                 || name_lower.contains("garmin")
                 || name_lower.contains("hrm")
                 || name_lower.contains("wahoo")
@@ -148,7 +161,7 @@ pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice
                 || name_lower.contains("watch")
                 || name_lower.contains("band")
                 || props.services.contains(&HEART_RATE_SERVICE_UUID);
-            
+
             if is_hr_device {
                 eprintln!("  -> 识别为心率设备");
                 devices.push(BleDevice {
@@ -172,11 +185,16 @@ pub async fn connect_and_listen_heart_rate(
     callback: impl Fn(HeartRateData) + Send + 'static,
 ) -> Result<(), String> {
     eprintln!("开始连接设备: {}", device_id);
-    
-    let manager = Manager::new().await.map_err(|e| format!("创建蓝牙管理器失败: {}", e))?;
-    
-    let adapters = manager.adapters().await.map_err(|e| format!("获取适配器失败: {}", e))?;
-    
+
+    let manager = Manager::new()
+        .await
+        .map_err(|e| format!("创建蓝牙管理器失败: {}", e))?;
+
+    let adapters = manager
+        .adapters()
+        .await
+        .map_err(|e| format!("获取适配器失败: {}", e))?;
+
     if adapters.is_empty() {
         return Err("未找到蓝牙适配器".to_string());
     }
@@ -192,8 +210,11 @@ pub async fn connect_and_listen_heart_rate(
 
     time::sleep(Duration::from_secs(3)).await;
 
-    let peripherals = central.peripherals().await.map_err(|e| format!("获取设备失败: {}", e))?;
-    
+    let peripherals = central
+        .peripherals()
+        .await
+        .map_err(|e| format!("获取设备失败: {}", e))?;
+
     let target = peripherals
         .into_iter()
         .find(|p| p.id().to_string() == device_id)
@@ -218,7 +239,7 @@ pub async fn connect_and_listen_heart_rate(
 
     let characteristics = target.characteristics();
     eprintln!("发现 {} 个特征", characteristics.len());
-    
+
     // 查找心率特征
     let hr_char = characteristics
         .iter()
