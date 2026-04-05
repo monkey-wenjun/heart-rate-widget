@@ -1,0 +1,6 @@
+# 使用官方源或USTC镜像
+# [source.crates-io]
+# replace-with = 'ustc'
+# 
+# [source.ustc]
+# registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
