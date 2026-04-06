@@ -113,7 +113,7 @@ export default function MetricsPanel({
           title="心率"
           value={heartRate > 0 ? heartRate : 0}
           unit="BPM"
-          subValue={heartRate > 0 ? '已连接' : '等待连接'}
+          subValue={heartRate > 0 ? undefined : '等待连接'}
           color="#ff4757"
           history={hrHistory}
           icon="❤"

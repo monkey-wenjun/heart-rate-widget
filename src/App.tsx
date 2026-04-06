@@ -17,6 +17,7 @@ interface HistoryPoint {
 
 export default function App() {
   const [isLocked, setIsLocked] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const [deviceName, setDeviceName] = useState<string>('');
@@ -167,8 +168,15 @@ export default function App() {
 
   const lockIcon = isLocked ? '○' : '●';
   
+  // 控制按钮是否可见：解锁时始终显示，锁定时只有悬停才显示
+  const showControls = !isLocked || isHovered;
+  
   return (
-    <div style={styles.container}>
+    <div 
+      style={styles.container}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* 拖动区域 - 整个背景可拖动（解锁时） */}
       {!isLocked && !showSettings && (
         <div 
@@ -177,8 +185,13 @@ export default function App() {
         />
       )}
       
-      {/* 控制按钮 - 右上角浮动 */}
-      <div style={styles.controls}>
+      {/* 控制按钮 - 右上角浮动，锁定时悬停才显示 */}
+      <div style={{
+        ...styles.controls,
+        opacity: showControls ? 1 : 0,
+        pointerEvents: showControls ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease',
+      }}>
         <button
           onClick={toggleLock}
           style={styles.iconBtn}
@@ -281,8 +294,8 @@ export default function App() {
           </div>
         </div>
       ) : (
-        /* 主内容区 - 只在心率组件关闭时显示 */
-        !showHeartRate && (
+        /* 主内容区 - 当没有任何监控开启时显示默认心率 */
+        !(showHeartRate || showCpuMonitor || showMemoryMonitor || showGpuMonitor) && (
           <div style={styles.content}>
             {/* 状态指示器 */}
             <div style={styles.statusLine}>
