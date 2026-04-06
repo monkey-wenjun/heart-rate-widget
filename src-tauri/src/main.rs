@@ -265,7 +265,6 @@ fn main() {
             // 创建托盘图标
             let _tray =
                 tauri::tray::TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
                     .menu(&menu)
                     .tooltip("心率监测")
                     .on_menu_event(|app: &tauri::AppHandle, event: tauri::menu::MenuEvent| {
