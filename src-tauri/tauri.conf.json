@@ -49,10 +49,7 @@
         }
       ]
     },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "tooltip": "心率监测"
-    }
+    "trayIcon": null
   },
   "bundle": {
     "active": true,

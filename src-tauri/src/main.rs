@@ -263,10 +263,14 @@ fn main() {
             let menu = tauri::menu::Menu::with_items(app, &[&show_item, &settings_item, &quit_item])?;
 
             // 创建托盘图标
-            let _tray =
-                tauri::tray::TrayIconBuilder::new()
-                    .menu(&menu)
-                    .tooltip("心率监测")
+            let icon = app.default_window_icon().cloned();
+            let mut tray_builder = tauri::tray::TrayIconBuilder::new()
+                .menu(&menu)
+                .tooltip("心率监测");
+            if let Some(icon) = icon {
+                tray_builder = tray_builder.icon(icon);
+            }
+            let _tray = tray_builder
                     .on_menu_event(|app: &tauri::AppHandle, event: tauri::menu::MenuEvent| {
                         match event.id().as_ref() {
                             "show" => {

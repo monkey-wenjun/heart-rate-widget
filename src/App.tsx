@@ -349,12 +349,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     width: '100%',
     height: '100%',
-    background: 'rgba(20, 20, 25, 0.05)',
+    background: '#1a1a2e',
     borderRadius: '12px',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     position: 'relative',
   },
   dragOverlay: {
