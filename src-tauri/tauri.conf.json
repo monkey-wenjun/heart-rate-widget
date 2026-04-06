@@ -49,11 +49,20 @@
         }
       ]
     },
-    "trayIcon": null
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "tooltip": "心率监测"
+    }
   },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "icon": ["icons/icon.ico"]
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico"
+      }
+    }
   }
 }
