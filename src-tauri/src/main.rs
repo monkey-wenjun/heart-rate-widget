@@ -6,11 +6,14 @@ use tauri::{Manager, State};
 use tokio::sync::mpsc;
 
 mod ble;
+mod system_monitor;
 use ble::{connect_and_listen_heart_rate, scan_heart_rate_devices, BleDevice, HeartRateData};
+use system_monitor::{SystemMonitor, SystemStats};
 
 struct AppState {
     current_device: Arc<Mutex<Option<String>>>,
     heart_rate_sender: Arc<Mutex<Option<mpsc::Sender<HeartRateData>>>>,
+    system_monitor: Arc<SystemMonitor>,
 }
 
 // Windows API 设置窗口为桌面底层
@@ -186,10 +189,19 @@ async fn set_autostart(enabled: bool, app: tauri::AppHandle) -> Result<(), Strin
     Ok(())
 }
 
+// 获取系统监控数据
+#[tauri::command]
+async fn get_system_stats(state: State<'_, AppState>) -> Result<SystemStats, String> {
+    Ok(state.system_monitor.get_stats())
+}
+
 fn main() {
+    let system_monitor = Arc::new(SystemMonitor::new());
+    
     let state = AppState {
         current_device: Arc::new(Mutex::new(None)),
         heart_rate_sender: Arc::new(Mutex::new(None)),
+        system_monitor: system_monitor.clone(),
     };
 
     tauri::Builder::default()
@@ -204,8 +216,11 @@ fn main() {
             load_window_position,
             get_autostart_status,
             set_autostart,
+            get_system_stats,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            // 启动系统监控
+            system_monitor.start_monitoring();
             // 获取主窗口
             let window = app.get_webview_window("main").unwrap();
 
@@ -213,16 +228,27 @@ fn main() {
             let monitor = window.current_monitor().ok().flatten();
             if let Some(m) = monitor {
                 let size = m.size();
-                let window_width = 320.0;
-                let right_margin = 80.0;
-                let x = size.width as f64 / m.scale_factor() - window_width - right_margin;
-                let y = 50.0;
+                let scale = m.scale_factor();
+                let window_width: f64 = 320.0;
+                let window_height: f64 = 480.0;
+                let right_margin: f64 = 50.0;
+                let top_margin: f64 = 50.0;
+                
+                // 计算逻辑像素位置
+                let screen_width = size.width as f64 / scale;
+                let screen_height = size.height as f64 / scale;
+                
+                // 右上角位置，确保不超出屏幕
+                let x = (screen_width - window_width - right_margin).max(10.0);
+                let y = top_margin.min(screen_height - window_height - 10.0);
+                
                 let _: Result<(), _> =
                     window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
             }
 
             // 设置窗口为桌面底层（不遮挡其他窗口，不显示在任务栏）
-            set_window_to_desktop_bottom(&window);
+            // 暂时禁用，确保窗口可见
+            // set_window_to_desktop_bottom(&window);
 
             // 创建托盘菜单
             let show_item =

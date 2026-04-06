@@ -19,6 +19,7 @@ btleplug = "0.11"
 uuid = "1"
 rand = "0.8"
 tokio-stream = "0.1"
+sysinfo = "0.38.4"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
