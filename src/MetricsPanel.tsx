@@ -103,12 +103,14 @@ export default function MetricsPanel({
     }
   }, [heartRate, showHeartRate]);
 
-  const hasAnyMetric = showHeartRate || showCpu || showMemory || showGpu;
+  // 如果所有监控都关闭，默认显示心率
+  const effectiveShowHeartRate = showHeartRate || (!showCpu && !showMemory && !showGpu);
+  const hasAnyMetric = effectiveShowHeartRate || showCpu || showMemory || showGpu;
   if (!hasAnyMetric) return null;
 
   return (
     <div style={styles.container}>
-      {showHeartRate && (
+      {effectiveShowHeartRate && (
         <MetricCard
           title="心率"
           value={heartRate > 0 ? heartRate : 0}

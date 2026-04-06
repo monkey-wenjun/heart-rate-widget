@@ -30,7 +30,11 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
-  const [showHeartRate, setShowHeartRate] = useState(() => localStorage.getItem('hrWidget_showHeartRate') !== 'false');
+  const [showHeartRate, setShowHeartRate] = useState(() => {
+    const saved = localStorage.getItem('hrWidget_showHeartRate');
+    // 默认开启心率监控，除非用户明确关闭
+    return saved === null ? true : saved === 'true';
+  });
   const [showCpuMonitor, setShowCpuMonitor] = useState(() => localStorage.getItem('hrWidget_showCpu') === 'true');
   const [showMemoryMonitor, setShowMemoryMonitor] = useState(() => localStorage.getItem('hrWidget_showMemory') === 'true');
   const [showGpuMonitor, setShowGpuMonitor] = useState(() => localStorage.getItem('hrWidget_showGpu') === 'true');
