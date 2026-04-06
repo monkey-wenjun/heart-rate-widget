@@ -205,9 +205,9 @@ fn main() {
     };
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {
-            // 当检测到第二个实例时，聚焦到第一个实例的窗口
-        }))
+        // .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {
+        //     // 当检测到第二个实例时，聚焦到第一个实例的窗口
+        // }))
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(state)
