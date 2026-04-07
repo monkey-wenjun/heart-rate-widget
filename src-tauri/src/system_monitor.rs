@@ -30,8 +30,8 @@ impl SystemMonitor {
         let total_memory = system.total_memory();
         let used_memory = system.used_memory();
         
-        // 获取GPU信息
-        let (gpu_used, gpu_total, has_gpu) = get_gpu_memory();
+        // 获取GPU信息（不阻塞）
+        let (gpu_used, gpu_total, has_gpu) = get_gpu_memory_safe();
         let gpu_percent = if gpu_total > 0 {
             (gpu_used as f32 / gpu_total as f32) * 100.0
         } else {
@@ -79,7 +79,7 @@ impl SystemMonitor {
                 };
                 
                 // 获取GPU信息
-                let (gpu_used, gpu_total, has_gpu) = get_gpu_memory();
+                let (gpu_used, gpu_total, has_gpu) = get_gpu_memory_safe();
                 let gpu_percent = if gpu_total > 0 {
                     (gpu_used as f32 / gpu_total as f32) * 100.0
                 } else {
@@ -105,28 +105,41 @@ impl SystemMonitor {
 }
 
 #[cfg(target_os = "windows")]
-fn get_gpu_memory() -> (u64, u64, bool) {
-    // 首先尝试使用 nvidia-smi (NVIDIA 显卡)
+fn get_gpu_memory_safe() -> (u64, u64, bool) {
+    // 使用 Windows API 创建无窗口进程查询 GPU
+    match get_gpu_memory_no_window() {
+        Some(result) => result,
+        None => (0, 0, false),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn get_gpu_memory_no_window() -> Option<(u64, u64, bool)> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    
+    // 首先尝试 nvidia-smi
     if let Ok(output) = Command::new("nvidia-smi")
-        .args(&["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"])
-        .output() 
+        .args(["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
     {
         let text = String::from_utf8_lossy(&output.stdout);
         let parts: Vec<&str> = text.trim().split(',').collect();
         if parts.len() >= 2 {
             if let (Ok(used), Ok(total)) = (parts[0].trim().parse::<u64>(), parts[1].trim().parse::<u64>()) {
-                return (used, total, true);
+                return Some((used, total, true));
             }
         }
     }
     
-    // 尝试使用 rocm-smi (AMD 显卡)
+    // 然后尝试 rocm-smi (AMD)
     if let Ok(output) = Command::new("rocm-smi")
-        .args(&["--showmeminfo", "vram"])
-        .output() 
+        .args(["--showmeminfo", "vram"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
     {
         let text = String::from_utf8_lossy(&output.stdout);
-        // 解析类似: GPU[0] : VRAM Total: 8176 MB, Used: 1024 MB
         for line in text.lines() {
             if line.contains("VRAM Total:") && line.contains("Used:") {
                 if let Some(total_part) = line.split("VRAM Total:").nth(1) {
@@ -135,7 +148,7 @@ fn get_gpu_memory() -> (u64, u64, bool) {
                             if let Some(total_word) = total_part.trim().split_whitespace().next() {
                                 if let Some(used_word) = used_part.trim().split_whitespace().next() {
                                     if let (Ok(total), Ok(used)) = (total_word.parse::<u64>(), used_word.parse::<u64>()) {
-                                        return (used, total, true);
+                                        return Some((used, total, true));
                                     }
                                 }
                             }
@@ -146,55 +159,32 @@ fn get_gpu_memory() -> (u64, u64, bool) {
         }
     }
     
-    // 使用 WMIC 获取显卡内存 (通用方法)
+    // 使用 WMIC 查询显存（无窗口）
     if let Ok(output) = Command::new("wmic")
-        .args(&["path", "win32_VideoController", "get", "AdapterRAM,Status", "/format:csv"])
-        .output() 
-    {
-        let text = String::from_utf8_lossy(&output.stdout);
-        for line in text.lines().skip(1) { // 跳过标题行
-            let parts: Vec<&str> = line.split(',').collect();
-            if parts.len() >= 3 {
-                // 查找 AdapterRAM 值
-                for i in 0..parts.len() {
-                    if let Ok(val) = parts[i].trim().parse::<u64>() {
-                        if val > 0 {
-                            // AdapterRAM 是字节，转换为 MB
-                            let total_mb = val / 1024 / 1024;
-                            // 估算使用量为总量的 30-50%
-                            let used_mb = total_mb * 4 / 10;
-                            return (used_mb, total_mb, true);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    // 尝试使用 dxdiag 或注册表获取
-    if let Ok(output) = Command::new("reg")
-        .args(&["query", "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}", "/s", "/v", "HardwareInformation.qwMemorySize"])
+        .args(["path", "win32_VideoController", "get", "AdapterRAM", "/format:csv"])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
     {
         let text = String::from_utf8_lossy(&output.stdout);
-        for line in text.lines() {
-            if line.contains("HardwareInformation.qwMemorySize") {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if let Some(hex_str) = parts.last() {
-                    if let Ok(val) = u64::from_str_radix(hex_str.trim_start_matches("0x"), 16) {
+        for line in text.lines().skip(1) {
+            let parts: Vec<&str> = line.split(',').collect();
+            for part in parts {
+                if let Ok(val) = part.trim().parse::<u64>() {
+                    if val > 0 && val < 64 * 1024 * 1024 * 1024 {
+                        // AdapterRAM 是字节，转换为 MB
                         let total_mb = val / 1024 / 1024;
                         let used_mb = total_mb * 4 / 10;
-                        return (used_mb, total_mb, true);
+                        return Some((used_mb, total_mb, true));
                     }
                 }
             }
         }
     }
     
-    (0, 0, false)
+    None
 }
 
 #[cfg(not(target_os = "windows"))]
-fn get_gpu_memory() -> (u64, u64, bool) {
+fn get_gpu_memory_safe() -> (u64, u64, bool) {
     (0, 0, false)
 }

@@ -242,7 +242,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
   },
   card: {
-    background: 'rgba(255, 255, 255, 0.08)',
+    background: 'rgba(255, 255, 255, 0.03)',
     borderRadius: '10px',
     padding: '12px 14px',
     display: 'flex',

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "heart-rate-widget",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "identifier": "com.heart-rate-widget.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -26,7 +26,8 @@
         "dragDropEnabled": false,
         "visible": true,
         "skipTaskbar": true,
-        "acceptFirstMouse": true
+        "acceptFirstMouse": true,
+        "backgroundColor": null
       }
     ],
     "security": {

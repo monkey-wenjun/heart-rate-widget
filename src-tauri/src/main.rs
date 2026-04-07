@@ -1,5 +1,5 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Prevents additional console window on Windows, DO NOT REMOVE!!
+#![windows_subsystem = "windows"]
 
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 
 mod ble;
 mod system_monitor;
+mod logger;
 use ble::{connect_and_listen_heart_rate, scan_heart_rate_devices, BleDevice, HeartRateData};
 use system_monitor::{SystemMonitor, SystemStats};
 
@@ -196,6 +197,11 @@ async fn get_system_stats(state: State<'_, AppState>) -> Result<SystemStats, Str
 }
 
 fn main() {
+    // 记录启动日志，帮助排查终端弹出问题
+    app_log!("=== 应用启动 ===");
+    app_log!("版本: 1.2.0");
+    app_log!("编译模式: {}", if cfg!(debug_assertions) { "Debug" } else { "Release" });
+    
     let system_monitor = Arc::new(SystemMonitor::new());
     
     let state = AppState {
@@ -262,15 +268,16 @@ fn main() {
                 tauri::menu::MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = tauri::menu::Menu::with_items(app, &[&show_item, &settings_item, &quit_item])?;
 
-            // 创建托盘图标
-            let icon = app.default_window_icon().cloned();
-            let mut tray_builder = tauri::tray::TrayIconBuilder::new()
-                .menu(&menu)
-                .tooltip("心率监测");
-            if let Some(icon) = icon {
-                tray_builder = tray_builder.icon(icon);
-            }
-            let _tray = tray_builder
+            // 创建托盘图标（可选，失败不阻塞）
+            let _ = (|| -> Result<(), Box<dyn std::error::Error>> {
+                let icon = app.default_window_icon().cloned();
+                let mut tray_builder = tauri::tray::TrayIconBuilder::new()
+                    .menu(&menu)
+                    .tooltip("心率监测");
+                if let Some(icon) = icon {
+                    tray_builder = tray_builder.icon(icon);
+                }
+                let _tray = tray_builder
                     .on_menu_event(|app: &tauri::AppHandle, event: tauri::menu::MenuEvent| {
                         match event.id().as_ref() {
                             "show" => {
@@ -299,7 +306,6 @@ fn main() {
                     })
                     .on_tray_icon_event(
                         |tray: &tauri::tray::TrayIcon, event: tauri::tray::TrayIconEvent| {
-                            // 只处理左键单击显示/隐藏窗口，右键留给菜单
                             if let tauri::tray::TrayIconEvent::Click {
                                 button: tauri::tray::MouseButton::Left,
                                 ..
@@ -318,6 +324,8 @@ fn main() {
                         },
                     )
                     .build(app)?;
+                Ok(())
+            })();
 
             Ok(())
         })

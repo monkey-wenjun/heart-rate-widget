@@ -183,7 +183,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxSizing: 'border-box',
   },
   card: {
-    background: 'rgba(255, 255, 255, 0.08)',
+    background: 'rgba(255, 255, 255, 0.03)',
     borderRadius: '8px',
     padding: '10px 12px',
     display: 'flex',

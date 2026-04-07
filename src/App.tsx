@@ -353,7 +353,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     width: '100%',
     height: '100%',
-    background: '#1a1a2e',
+    background: 'transparent',
     borderRadius: '12px',
     display: 'flex',
     flexDirection: 'column',
@@ -476,7 +476,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '10px',
     zIndex: 100,
     overflow: 'hidden',
-    background: 'rgba(30, 30, 40, 0.98)',
+    background: 'rgba(30, 30, 40, 0.3)',
     borderRadius: '12px',
   },
   settingsHeader: {

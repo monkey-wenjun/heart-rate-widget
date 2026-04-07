@@ -3,6 +3,7 @@ use btleplug::platform::Manager;
 use std::time::Duration;
 use tokio::time;
 use uuid::Uuid;
+use crate::app_log;
 
 // 心率服务 UUID
 const HEART_RATE_SERVICE_UUID: Uuid = Uuid::from_u128(0x0000180d_0000_1000_8000_00805f9b34fb);
@@ -26,10 +27,10 @@ pub struct BleDevice {
 
 /// 解析心率测量数据
 pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
-    eprintln!("收到原始数据: {:?}", data);
+    app_log!("收到原始数据: {:?}", data);
 
     if data.is_empty() {
-        eprintln!("数据为空");
+        app_log!("数据为空");
         return None;
     }
 
@@ -39,7 +40,7 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
     let energy_expended_present = (flags >> 3) & 0x01;
     let rr_interval_present = (flags >> 4) & 0x01;
 
-    eprintln!(
+    app_log!(
         "Flags: {:08b}, HR格式: {}, 传感器: {}, 能量: {}, RR: {}",
         flags,
         heart_rate_format,
@@ -57,7 +58,7 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
             index += 1;
             hr
         } else {
-            eprintln!("数据长度不足(uint8)");
+            app_log!("数据长度不足(uint8)");
             return None;
         }
     } else {
@@ -66,7 +67,7 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
             index += 2;
             hr
         } else {
-            eprintln!("数据长度不足(uint16)");
+            app_log!("数据长度不足(uint16)");
             return None;
         }
     };
@@ -96,7 +97,7 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
         }
     }
 
-    eprintln!("解析成功: 心率={}, 传感器={}", heart_rate, sensor_contact);
+    app_log!("解析成功: 心率={}, 传感器={}", heart_rate, sensor_contact);
 
     Some(HeartRateData {
         heart_rate,
@@ -108,7 +109,7 @@ pub fn parse_heart_rate_data(data: &[u8]) -> Option<HeartRateData> {
 
 /// 扫描心率设备
 pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice>, String> {
-    eprintln!("开始扫描蓝牙设备...");
+    app_log!("开始扫描蓝牙设备...");
 
     let manager = Manager::new()
         .await
@@ -124,21 +125,21 @@ pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice
     }
 
     let central = adapters.into_iter().next().unwrap();
-    eprintln!("使用适配器扫描...");
+    app_log!("使用适配器扫描...");
 
     central
         .start_scan(ScanFilter::default())
         .await
         .map_err(|e| format!("开始扫描失败: {}", e))?;
 
-    eprintln!("扫描中... 等待 {} 秒", duration_secs);
+    app_log!("扫描中... 等待 {} 秒", duration_secs);
     time::sleep(Duration::from_secs(duration_secs)).await;
 
     let peripherals = central
         .peripherals()
         .await
         .map_err(|e| format!("获取设备失败: {}", e))?;
-    eprintln!("发现 {} 个设备", peripherals.len());
+    app_log!("发现 {} 个设备", peripherals.len());
 
     let mut devices = Vec::new();
 
@@ -146,7 +147,7 @@ pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice
         if let Ok(Some(props)) = p.properties().await {
             let name = props.local_name.unwrap_or_else(|| "未知设备".to_string());
 
-            eprintln!("设备: {} | 服务: {:?}", name, props.services);
+            app_log!("设备: {} | 服务: {:?}", name, props.services);
 
             // 支持的心率设备
             let name_lower = name.to_lowercase();
@@ -163,7 +164,7 @@ pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice
                 || props.services.contains(&HEART_RATE_SERVICE_UUID);
 
             if is_hr_device {
-                eprintln!("  -> 识别为心率设备");
+                app_log!("  -> 识别为心率设备");
                 devices.push(BleDevice {
                     id: p.id().to_string(),
                     name,
@@ -174,7 +175,7 @@ pub async fn scan_heart_rate_devices(duration_secs: u64) -> Result<Vec<BleDevice
     }
 
     let _ = central.stop_scan().await;
-    eprintln!("扫描完成，找到 {} 个心率设备", devices.len());
+    app_log!("扫描完成，找到 {} 个心率设备", devices.len());
 
     Ok(devices)
 }
@@ -184,7 +185,7 @@ pub async fn connect_and_listen_heart_rate(
     device_id: &str,
     callback: impl Fn(HeartRateData) + Send + 'static,
 ) -> Result<(), String> {
-    eprintln!("开始连接设备: {}", device_id);
+    app_log!("开始连接设备: {}", device_id);
 
     let manager = Manager::new()
         .await
@@ -202,7 +203,7 @@ pub async fn connect_and_listen_heart_rate(
     let central = adapters.into_iter().next().unwrap();
 
     // 扫描找设备
-    eprintln!("扫描查找设备...");
+    app_log!("扫描查找设备...");
     central
         .start_scan(ScanFilter::default())
         .await
@@ -223,48 +224,48 @@ pub async fn connect_and_listen_heart_rate(
     let _ = central.stop_scan().await;
 
     // 连接设备
-    eprintln!("正在连接...");
+    app_log!("正在连接...");
     target
         .connect()
         .await
         .map_err(|e| format!("连接设备失败: {}", e))?;
-    eprintln!("连接成功!");
+    app_log!("连接成功!");
 
     // 发现服务
-    eprintln!("发现服务...");
+    app_log!("发现服务...");
     target
         .discover_services()
         .await
         .map_err(|e| format!("发现服务失败: {}", e))?;
 
     let characteristics = target.characteristics();
-    eprintln!("发现 {} 个特征", characteristics.len());
+    app_log!("发现 {} 个特征", characteristics.len());
 
     // 查找心率特征
     let hr_char = characteristics
         .iter()
         .find(|c| {
-            eprintln!("检查特征: {} (服务: {})", c.uuid, c.service_uuid);
+            app_log!("检查特征: {} (服务: {})", c.uuid, c.service_uuid);
             c.uuid == HEART_RATE_MEASUREMENT_UUID
         })
         .cloned()
         .ok_or_else(|| {
-            eprintln!("未找到心率测量特征，可用特征:");
+            app_log!("未找到心率测量特征，可用特征:");
             for c in &characteristics {
-                eprintln!("  - {} (服务: {})", c.uuid, c.service_uuid);
+                app_log!("  - {} (服务: {})", c.uuid, c.service_uuid);
             }
             "未找到心率测量特征".to_string()
         })?;
 
-    eprintln!("找到心率特征: {}", hr_char.uuid);
+    app_log!("找到心率特征: {}", hr_char.uuid);
 
     // 订阅心率通知
-    eprintln!("订阅心率通知...");
+    app_log!("订阅心率通知...");
     target
         .subscribe(&hr_char)
         .await
         .map_err(|e| format!("订阅心率通知失败: {}", e))?;
-    eprintln!("订阅成功! 开始接收数据...");
+    app_log!("订阅成功! 开始接收数据...");
 
     // 监听通知
     let mut notifications = target.notifications().await.map_err(|e| e.to_string())?;
@@ -273,12 +274,12 @@ pub async fn connect_and_listen_heart_rate(
     tokio::spawn(async move {
         use tokio_stream::StreamExt;
         while let Some(data) = notifications.next().await {
-            eprintln!("收到通知数据: {:?}", data.value);
+            app_log!("收到通知数据: {:?}", data.value);
             if let Some(hr_data) = parse_heart_rate_data(&data.value) {
                 callback(hr_data);
             }
         }
-        eprintln!("通知流结束");
+        app_log!("通知流结束");
     });
 
     Ok(())
